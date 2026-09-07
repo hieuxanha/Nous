@@ -13,16 +13,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Collections;
 import java.util.List;
 
-@RestController
-@RequestMapping("/categories")
+    @RestController
+    @RequestMapping("/categories")
 // [QUAN TRỌNG] Tự động tạo Constructor cho các biến final (categoryService)
 // Thay thế cho việc phải viết: public CategoryController(CategoryService...)
-@RequiredArgsConstructor
+    @RequiredArgsConstructor
 // [QUAN TRỌNG] Mở cửa cho Angular ở cổng 4200 gọi vào mà không bị chặn
-@CrossOrigin(origins = "http://localhost:4200")
-public class CategoryController {
+    @CrossOrigin(origins = "http://localhost:4200")
+    public class CategoryController {
 
-    private final CategoryService categoryService;
+        private final CategoryService categoryService;
 
     // --- LẤY TẤT CẢ ---
     @GetMapping

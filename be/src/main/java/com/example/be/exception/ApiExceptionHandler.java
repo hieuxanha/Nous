@@ -11,8 +11,10 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> handleAll(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
-    }
+    // LƯU Ý: KHÔNG đặt @ExceptionHandler(Exception.class) ở đây nữa.
+    // Spring duyệt các @ControllerAdvice theo thứ tự, gặp advice nào có method khớp
+    // là dùng luôn advice đó. Một catch-all Exception ở đây sẽ "nuốt" hết mọi lỗi
+    // (kể cả BadCredentialsException) và trả 500, khiến các handler cụ thể
+    // trong GlobalExceptionHandler không bao giờ được gọi.
+    // Việc bắt lỗi chung đã có GlobalExceptionHandler lo.
 }

@@ -2,6 +2,7 @@ package com.example.be.exception;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -31,7 +32,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errors);
     }
 
-    // 3. Bắt các lỗi còn lại (để in ra màn hình console xem cho dễ)
+    // 3. Bắt lỗi sai email / sai mật khẩu (do UserServiceImpl.login ném ra) -> 401 Unauthorized
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<?> handleBadCredentials(BadCredentialsException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Collections.singletonMap("error", e.getMessage()));
+    }
+
+    // 4. Bắt các lỗi còn lại (để in ra màn hình console xem cho dễ)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGlobalException(Exception e) {
         e.printStackTrace(); // In lỗi đỏ lòm ra console server để debug

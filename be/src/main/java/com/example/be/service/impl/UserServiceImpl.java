@@ -11,6 +11,7 @@ import com.example.be.repository.UserRepository;
 import com.example.be.service.UserService;
 import com.example.be.exception.ResourceAlreadyExistsException;
 import com.example.be.utils.JwtUtil;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,14 +27,15 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
-//    private final JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
 
 
     public UserServiceImpl(UserRepository userRepository, RoleRepository roleRepository,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -83,26 +85,39 @@ public class UserServiceImpl implements UserService {
     }
 
 
-//    @Override
-//    public LoginResponse login(LoginRequest req) {
-//        // 1. Tìm user
-//        User user = userRepository.findByEmail(req.getEmail())
-//                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
-//
-//        // 2. Check pass
-//        if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-//            throw new RuntimeException("Invalid credentials"); // Hoặc ném Exception tùy chỉnh
-//        }
-//
-//        // 3. Lấy roles
-//        List<String> roles = user.getRoles().stream()
-//                .map(r -> r.getName().name())
-//                .collect(Collectors.toList());
-//
-//        // 4. Tạo token
-//        String token = jwtUtil.generateToken(user.getEmail(), user.getId(), roles);
-//
-//        // 5. Trả về DTO
-//        return new LoginResponse(token, "Bearer", user.getId(), user.getEmail(), user.getFullName(), user.getGender(), roles);
-//    }
+    // ---------------------------------------------------------------------
+    // LOGIC ĐĂNG NHẬP (chuyển từ Controller xuống đây)
+    // Controller giờ chỉ việc gọi 1 dòng: userService.login(req)
+    // ---------------------------------------------------------------------
+    @Override
+    @Transactional(readOnly = true)
+    public LoginResponse login(LoginRequest request) {
+        // 1. Tìm user theo email
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+
+        // 2. So khớp mật khẩu thô với mật khẩu đã mã hóa trong DB
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+
+        // 3. Lấy danh sách quyền (ROLE_USER / ROLE_ADMIN)
+        List<String> roles = user.getRoles().stream()
+                .map(r -> r.getName().name())
+                .collect(Collectors.toList());
+
+        // 4. Sinh token
+        String token = jwtUtil.generateToken(user.getEmail(), user.getId(), roles);
+
+        // 5. Đóng gói dữ liệu trả về cho Angular
+        return new LoginResponse(
+                token,
+                "Bearer",
+                user.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getGender(),
+                roles
+        );
+    }
 }
