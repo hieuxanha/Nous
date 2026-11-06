@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms'; // QUAN TRỌNG: Để dùng ngModel cho textarea
 
 // --- SERVICES ---
-import { ApiService } from '../../../../core/services/product-detail-service'; 
+import { ApiService } from '../../../../core/services/product-detail.service'; 
 import { WishlistService } from '../../../../core/services/wishlist.service'; 
 import { UserService } from '../../../../core/services/user.service'; 
 import { ReviewService } from '../../../../core/services/review.service'; // MỚI
