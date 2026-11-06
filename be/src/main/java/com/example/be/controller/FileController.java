@@ -5,6 +5,7 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -36,8 +37,17 @@ public class FileController {
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
         try {
+            // Cắt bỏ mọi thành phần đường dẫn trong tên file do client gửi lên.
+            // Nếu ghép thẳng getOriginalFilename(), tên kiểu "../../evil.txt" sẽ tạo ra
+            // đường dẫn có segment ".." và ghi file ra NGOÀI thư mục uploads (path traversal).
+            String originalName = StringUtils.getFilename(
+                    StringUtils.cleanPath(file.getOriginalFilename() == null ? "" : file.getOriginalFilename()));
+            if (originalName == null || originalName.isBlank()) {
+                originalName = "file";
+            }
+
             // Tạo tên file ngẫu nhiên để tránh trùng
-            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            String fileName = UUID.randomUUID().toString() + "_" + originalName;
             Files.copy(file.getInputStream(), this.rootLocation.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
 
             // Trả về đường dẫn ảnh để FE lưu vào DB

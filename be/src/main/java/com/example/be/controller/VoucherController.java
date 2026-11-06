@@ -46,14 +46,6 @@ public class VoucherController {
     // 4. Update Voucher -> CHỈ ADMIN
     @PutMapping("/admin/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> updateVoucher(@PathVariable Long id, @RequestBody VoucherDTO dto) {
-        try {
-            return ResponseEntity.ok(voucherService.updateVoucher(id, dto));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Collections.singletonMap("message", e.getMessage()));
-        }
-    }
-
     // 5. Kiểm tra mã (Checkout) -> CÔNG KHAI (Khách dùng để áp mã)
     @GetMapping("/check")
     public ResponseEntity<?> checkVoucher(@RequestParam String code, @RequestParam Double totalAmount) {
@@ -64,4 +56,12 @@ public class VoucherController {
             return ResponseEntity.badRequest().body(Collections.singletonMap("message", e.getMessage()));
         }
     }
+    public ResponseEntity<?> updateVoucher(@PathVariable Long id, @RequestBody VoucherDTO dto) {
+        try {
+            return ResponseEntity.ok(voucherService.updateVoucher(id, dto));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Collections.singletonMap("message", e.getMessage()));
+        }
+    }
+
 }

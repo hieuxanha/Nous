@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -34,11 +35,6 @@ public class SecurityConfig {
     private final JwtUtil jwtUtil;
 
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(jwtUtil);
-    }
-
-    @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
@@ -52,37 +48,57 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults()) // Kích hoạt CORS
-                .csrf(AbstractHttpConfigurer::disable) // Tắt CSRF
-                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
+                .csrf(AbstractHttpConfigurer::disable) // Tắt CSRF (đúng chuẩn cho API dùng JWT)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
+                // -----------------------------------------------------------------
+                // [QUAN TRỌNG] Quy định mã lỗi trả về cho Angular.
+                // Nếu KHÔNG khai báo đoạn này, Spring dùng Http403ForbiddenEntryPoint
+                // mặc định -> request thiếu token / token hết hạn đều trả về 403.
+                // Interceptor bên Angular thường chỉ bắt 401 để đá về trang login,
+                // nên thiếu đoạn này thì token hết hạn sẽ không tự logout được.
+                // -----------------------------------------------------------------
+                .exceptionHandling(ex -> ex
+                        // Chưa đăng nhập / token sai / token hết hạn -> 401 Unauthorized
+                        .authenticationEntryPoint((req, res, authEx) -> {
+                            res.setStatus(401);
+                            res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            res.setCharacterEncoding("UTF-8");
+                            res.getWriter().write("{\"error\":\"Unauthorized - vui lòng đăng nhập lại\"}");
+                        })
+                        // Đã đăng nhập nhưng không đủ quyền (VD: user thường gọi API admin) -> 403
+                        .accessDeniedHandler((req, res, deniedEx) -> {
+                            res.setStatus(403);
+                            res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            res.setCharacterEncoding("UTF-8");
+                            res.getWriter().write("{\"error\":\"Forbidden - bạn không có quyền thực hiện thao tác này\"}");
+                        })
+                )
+
                 .authorizeHttpRequests(auth -> auth
-                        // --- 1. NHÓM PUBLIC (Ai cũng vào được) ---ntroller lo liệu.
-                        // Ở đây chỉ cần check "đã đăng nhập chưa" là đủ.
+                        // --- 1. NHÓM PUBLIC (Ai cũng vào được) ---
                         .requestMatchers("/auth/**").permitAll()      // Login, Register
-                        .requestMatchers("/files/**").permitAll()     // Xem ảnh
-                        .requestMatchers("/h2-console/**").permitAll() // DB Console
+
+                        // CHỈ cho phép GET (xem ảnh). Nếu để "/files/**" trống method thì
+                        // POST /files/upload cũng thành public -> ai cũng upload file lên server được.
+                        .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
 
                         // Xem danh sách/chi tiết (GET) -> Public
                         .requestMatchers(HttpMethod.GET, "/categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/product/**").permitAll()
                         .requestMatchers("/api/chat/**").permitAll() // Cho phép chat không cần login
-//                        .requestMatchers("/api/cart/**").authenticated()
-
-
 
                         // --- 2. NHÓM AUTHENTICATED (Phải đăng nhập) ---
-                        // Bao gồm: User thường, Admin...
-                        // Việc Admin mới được xóa/sửa sẽ do @PreAuthorize ở Co
-
-
-//                         "Tất cả những API nào chưa được nhắc tên ở trên,
-//                        thì MẶC ĐỊNH cho phép truy cập, MIỄN LÀ ĐÃ ĐĂNG NHẬP (có Token hợp lệ)."
+                        // "Tất cả những API nào chưa được nhắc tên ở trên thì MẶC ĐỊNH
+                        //  phải ĐÃ ĐĂNG NHẬP (có Token hợp lệ) mới gọi được."
+                        // Riêng việc Admin mới được xóa/sửa do @PreAuthorize ở Controller lo.
                         .anyRequest().authenticated()
                 )
 
-                .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+                // Không khai báo filter này là @Bean, vì Spring Boot sẽ tự động đăng ký
+                // Filter bean vào servlet chain chung, chạy cho cả request ngoài security chain.
+                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
